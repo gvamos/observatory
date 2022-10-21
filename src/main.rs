@@ -2,16 +2,14 @@
 
 #[cfg(test)] mod tests;
 
-mod json;
+mod session;
 mod msgpack;
 mod uuid;
-mod observatory;
 
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        // .attach(json::stage())
+        .attach(session::stage())
         .attach(msgpack::stage())
         .attach(uuid::stage())
-        .attach(observatory::stage())
 }
