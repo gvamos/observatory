@@ -6,6 +6,10 @@ use rocket::tokio::sync::Mutex;
 use rocket::serde::json::{Json, Value, json};
 use rocket::serde::{Serialize, Deserialize};
 
+use chrono::prelude::{DateTime, Utc};
+
+#[allow(dead_code)]
+
 // The type to represent the ID of a message.
 type Id = usize;
 
@@ -20,27 +24,6 @@ struct Message<'r> {
     message: Cow<'r, str>
 }
 
-/**
-* Session
-*/
-// #[derive(Serialize, Deserialize)]
-// #[serde(crate = "rocket::serde")]
-// struct SourceSessionRequest<'r> {
-//     id: Id,
-//     class: Cow<'r, str>,
-//     version: Cow<'r, str>
-// }
-//
-// impl SourceSessionRequest {
-//
-// }
-//
-// #[derive(Serialize, Deserialize)]
-// #[serde(crate = "rocket::serde")]
-// struct SourceSessionKey<'r> {
-//     source: Cow<'r, str>,
-//     timestamp: Cow<'r, str>,
-// }
 
 /*
  * Observatory main page
@@ -62,16 +45,33 @@ fn session_index() -> String {
     }).to_string()
 }
 
-// #[post("/", format = "json", data = "<message>")]
-// async fn new(message: Json<Message<'_>>, list: Messages<'_>) -> Value {
-//     let mut list = list.lock().await;
-//     let id = list.len();
-//     list.push(message.message.to_string());
-//     json!({ "status": "ok", "id": id })
-// }
+
+fn ticket_get() -> String {
+    // format!("Hello, sessions")
+    json!({
+        "timestamp": "ok",
+        "content": "session list goes here."
+    }).to_string()
+}
+/*
+ * data
+ */
+
+
+
+
+#[post("/", format = "json", data = "<data>")]
+async fn new(data: String, list: Messages<'_>) -> Value {
+    // let mut list = list.lock().await;
+    // let id = list.len();
+    // list.push(message.message.to_string());
+    // json!({ "status": "ok", "id": id })
+
+    json!({ "status": "ok", "data": data })
+}
 
 #[get("/<class>/<version>/<instance>")]
-async fn request_session(class: String, version: String, instance: Id) -> Value {
+async fn request_session_ticket(class: String, version: String, instance: Id) -> Value {
     let requestor = class.to_string() + ":" + &*version.to_string() + ":" + &*instance.to_string();
     let requestorKey = requestor.to_string();
 
@@ -84,12 +84,27 @@ async fn request_session(class: String, version: String, instance: Id) -> Value 
     json!({ "requestor": requestorKey, "timestamp": timestamp })
 }
 
-#[put("/<id>", format = "json", data = "<message>")]
-async fn update(id: Id, message: Json<Message<'_>>, list: Messages<'_>) -> Option<Value> {
-    match list.lock().await.get_mut(id) {
+// TODO: Use ticket for ID, store message here.
+
+#[post("/<ticket>", format = "json", data = "<message>")]
+async fn post_telemetry(ticket: Id, message: String, list: Messages<'_>) -> Option<Value> {
+    match list.lock().await.get_mut(ticket) {
+        Some(existing) => {
+            *existing = message.to_string();
+            Some(json!({ "status": "ok",
+                "data": message }))
+        }
+        None => None
+    }
+}
+
+#[put("/<ticket>", format = "json", data = "<message>")]
+async fn update(ticket: Id, message: Json<Message<'_>>, list: Messages<'_>) -> Option<Value> {
+    match list.lock().await.get_mut(ticket) {
         Some(existing) => {
             *existing = message.message.to_string();
-            Some(json!({ "status": "ok" }))
+            Some(json!({ "status": "ok",
+                "data": message.message.to_string() }))
         }
         None => None
     }
@@ -117,8 +132,9 @@ fn not_found() -> Value {
 
 pub fn stage() -> rocket::fairing::AdHoc {
     rocket::fairing::AdHoc::on_ignite("JSON", |rocket| async {
-        rocket.mount("/sessions", routes![update, get, request_session])
+        rocket.mount("/sessions", routes![update, get, request_session_ticket, session_index])
             .mount("/", routes![index])
+            .mount("/telemetry", routes![post_telemetry])
             .register("/sessions", catchers![not_found])
             .manage(MessageList::new(vec![]))
     })

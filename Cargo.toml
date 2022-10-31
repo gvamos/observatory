@@ -9,3 +9,6 @@ edition = "2021"
 [dependencies.rocket]
 #path = "../../core/lib"
 features = ["json", "msgpack", "uuid"]
+
+[dependencies]
+chrono = "0.4"
