@@ -84,18 +84,9 @@ async fn request_session_ticket(class: String, version: String, instance: Id) ->
     json!({ "requestor": requestorKey, "timestamp": timestamp })
 }
 
-// TODO: Use ticket for ID, store message here.
-
 #[post("/<ticket>", format = "json", data = "<message>")]
 async fn post_telemetry(ticket: Id, message: String, list: Messages<'_>) -> Option<Value> {
-    match list.lock().await.get_mut(ticket) {
-        Some(existing) => {
-            *existing = message.to_string();
-            Some(json!({ "status": "ok",
-                "data": message }))
-        }
-        None => None
-    }
+    Some(json!({ "status": "ok", "ticket":ticket, "data": message }))
 }
 
 #[put("/<ticket>", format = "json", data = "<message>")]
