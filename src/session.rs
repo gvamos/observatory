@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rocket::State;
 use rocket::tokio::sync::Mutex;
-use rocket::serde::json::{Json, Value, json};
+use rocket::serde::json::{Json, Value, json, serde_json};
 use rocket::serde::{Serialize, Deserialize};
 
 use chrono::prelude::{DateTime, Utc};
@@ -86,7 +86,13 @@ async fn request_session_ticket(class: String, version: String, instance: Id) ->
 
 #[post("/<ticket>", format = "json", data = "<message>")]
 async fn post_telemetry(ticket: Id, message: String, list: Messages<'_>) -> Option<Value> {
-    Some(json!({ "status": "ok", "ticket":ticket, "data": message }))
+
+    // Parse the string of data into serde_json::Value.
+    let mut record: Value = serde_json::from_str(&*message).ok()?;
+    record["ticket"] = Value::from(ticket.to_string());
+    println!("Ticket {} temp {}", record["ticket"], record["temp"]);
+
+    Some(json!({ "status": "ok", "ticket":ticket, "data": record.to_string() }))
 }
 
 #[put("/<ticket>", format = "json", data = "<message>")]
